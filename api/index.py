@@ -80,114 +80,113 @@ def predict_concentration(r, cond, ph):
 # Convert summary data to DataFrame for Gradio table
 summary_df = pd.DataFrame(summary_data).sort_values(by="RMSE")
 
-# Custom CSS for a premium feel and improved eye-space
+# Custom CSS for a clean, professional, and high-end aesthetic
 custom_css = """
 footer {visibility: hidden}
 .gradio-container {
-    font-family: 'Outfit', 'Inter', -apple-system, sans-serif;
-    background-color: #fcfcfd;
-    max-width: 1200px !important;
+    font-family: 'Outfit', 'Inter', sans-serif;
+    background-color: #f8fafc !important;
+    color: #1e293b;
 }
 .main-header {
-    text-align: center;
-    padding: 3.5rem 1rem;
-    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-    color: white;
-    border-radius: 1rem;
-    margin-bottom: 3rem;
-    box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+    text-align: left;
+    padding: 3rem 0;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid #e2e8f0;
 }
 .main-header h1 {
-    font-size: 3.25rem !important;
-    font-weight: 900;
-    margin-bottom: 1rem;
+    font-size: 2.5rem !important;
+    font-weight: 800 !important;
+    color: #0f172a !important;
+    margin-bottom: 0.5rem !important;
     letter-spacing: -0.025em;
-    background: linear-gradient(to right, #60a5fa, #a78bfa);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
 }
 .main-header p {
-    font-size: 1.25rem;
-    opacity: 0.85;
-    max-width: 700px;
-    margin: 0 auto;
-    line-height: 1.6;
+    font-size: 1.125rem;
+    color: #64748b;
+    max-width: 800px;
 }
 .metadata-badge {
-    background-color: rgba(96, 165, 250, 0.15);
-    border: 1px solid rgba(96, 165, 250, 0.3);
-    padding: 0.5rem 1.25rem;
-    border-radius: 9999px;
-    font-size: 0.95rem;
+    background-color: #e0e7ff;
+    color: #4338ca;
+    padding: 0.4rem 1rem;
+    border-radius: 6px;
+    font-size: 0.875rem;
     font-weight: 600;
-    color: #60a5fa;
     display: inline-block;
-    margin-top: 1.75rem;
+    margin-top: 1rem;
 }
 .section-card {
-    background: white;
-    padding: 2rem;
-    border-radius: 1rem;
-    border: 1px solid #e2e8f0;
-    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05);
-    margin-bottom: 2rem;
+    background: white !important;
+    padding: 2rem !important;
+    border-radius: 12px !important;
+    border: 1px solid #f1f5f9 !important;
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1) !important;
 }
 .section-title {
-    font-size: 1.5rem;
-    font-weight: 800;
-    color: #0f172a;
-    margin-bottom: 1.5rem;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
+    font-size: 1.25rem !important;
+    font-weight: 700 !important;
+    color: #0f172a !important;
+    margin-bottom: 1rem !important;
 }
 .instruction-text {
-    color: #64748b;
-    font-size: 1rem;
-    margin-bottom: 2rem;
-    line-height: 1.5;
+    color: #94a3b8;
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+}
+.gradio-button.primary {
+    background: #4f46e5 !important;
+    border: none !important;
+    font-weight: 600 !important;
+}
+.gradio-button.primary:hover {
+    background: #4338ca !important;
 }
 """
 
-with gr.Blocks(theme=gr.themes.Soft(primary_hue="blue", spacing_size="lg", radius_size="lg"), css=custom_css, head='<link rel="icon" href="/favicon.ico">') as demo:
+head_html = """
+<title>VOC Predictor | Precision Ethanol Sensing</title>
+<meta name="description" content="Intelligent multi-modal sensor fusion for ethanol concentration prediction using RI, Conductivity, and pH.">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="shortcut icon" type="image/x-icon" href="/favicon.ico">
+"""
+
+with gr.Blocks(theme=gr.themes.Default(primary_hue="indigo", secondary_hue="slate", font=["Outfit", "sans-serif"]), css=custom_css, head=head_html) as demo:
     with gr.Column(elem_classes="main-header"):
         gr.Markdown("# VOC Predictor")
-        gr.Markdown("High-precision ethanol quantification using physics-informed machine learning. Enter your sensor readings below to get an instant calculation.")
-        gr.Markdown(f'<div class="metadata-badge">🚀 Active Engine: {metadata["name"]} (RMSE: {metadata["rmse"]:.4f})</div>', sanitize_html=False)
+        gr.Markdown("High-precision ethanol quantification using physics-informed machine learning. Monitor sensor health and concentration levels in real-time.")
+        gr.Markdown(f'<div class="metadata-badge">Active Engine: {metadata["name"]} (RMSE: {metadata["rmse"]:.4f})</div>', sanitize_html=False)
     
-    with gr.Row(variant="compact"):
+    with gr.Row():
         with gr.Column(scale=3):
             with gr.Group(elem_classes="section-card"):
-                gr.Markdown('<div class="section-title">🔍 Step 1: Input Sensor Data</div>')
-                gr.Markdown('<p class="instruction-text">Ensure your sensors are calibrated. Values outside the training range will trigger a low-reliability warning.</p>')
+                gr.Markdown('<div class="section-title">Inference Engine</div>')
+                gr.Markdown('<p class="instruction-text">Enter real-time sensor data below. The system will automatically validate the reliability of your input ranges.</p>')
                 
                 with gr.Row():
-                    r_input = gr.Number(label="Refractive Index (R)", value=1.335, info="Target: 1.331 - 1.345")
-                    cond_input = gr.Number(label="Conductivity (μS/cm)", value=25.0, info="Target: 16.3 - 36.1")
-                    ph_input = gr.Number(label="pH Level", value=7.3, info="Target: 6.9 - 7.7")
+                    r_input = gr.Number(label="Refractive Index (R)", value=1.335, info="Range: 1.331 - 1.345")
+                    cond_input = gr.Number(label="Conductivity (μS/cm)", value=25.0, info="Range: 16.3 - 36.1")
+                    ph_input = gr.Number(label="pH Level", value=7.3, info="Range: 6.9 - 7.7")
                 
-                gr.Markdown('<div style="margin-top: 1.5rem"></div>')
-                predict_btn = gr.Button("🚀 Calculate Ethanol Concentration", variant="primary", size="lg")
+                predict_btn = gr.Button("Calculate Concentration", variant="primary")
                 
-                gr.Markdown('<div style="margin-top: 2.5rem"></div>')
-                gr.Markdown('<div class="section-title">📊 Step 2: Prediction Analysis</div>')
+                gr.Markdown('<div style="margin-top: 2rem; border-top: 1px solid #f1f5f9; padding-top: 2rem;"></div>')
                 
                 with gr.Row():
-                    output = gr.Textbox(label="Estimated Concentration (v/v)%", placeholder="Result...", interactive=False, scale=2)
-                    reliability_out = gr.Textbox(label="Confidence Status", value="🟢 Ready", interactive=False, scale=3)
+                    output = gr.Textbox(label="Ethanol Concentration (v/v)%", placeholder="Waiting for input...", interactive=False)
+                    reliability_out = gr.Textbox(label="Confidence Status", value="Ready", interactive=False)
         
         with gr.Column(scale=2):
             with gr.Group(elem_classes="section-card"):
-                gr.Markdown('<div class="section-title">🏆 Model Benchmarks</div>')
-                gr.Markdown('<p class="instruction-text">We evaluate multiple architectures to ensure the highest accuracy for your specific chemical mixture.</p>')
+                gr.Markdown('<div class="section-title">Model Benchmarks</div>')
                 gr.DataFrame(summary_df, label=None, interactive=False)
                 gr.Markdown("""
-                <div style="font-size: 0.85rem; color: #94a3b8; margin-top: 1rem">
-                *Accuracy measured via Root Mean Squared Error (RMSE) on a 20% validation split.
+                <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 1rem">
+                Models evaluated on a 20% validation split. RMSE values represent the root mean squared error.
                 </div>
                 """, sanitize_html=False)
 
-    with gr.Accordion("🧬 Technical Methodology & Sensor Fusion", open=False):
+    with gr.Accordion("Methodology Details", open=False):
         with gr.Row():
             with gr.Column():
                 gr.Markdown("""
