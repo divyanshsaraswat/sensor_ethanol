@@ -132,5 +132,8 @@ with gr.Blocks(theme=gr.themes.Soft(primary_hue="blue", secondary_hue="indigo"),
     gr.Markdown("---")
     gr.Markdown("Built with ❤️ using Gradio & Scikit-Learn | Research Project: VOC_Model")
 
+# Expose the FastAPI app for Vercel
+app = demo.app
+
 if __name__ == "__main__":
     demo.launch()
