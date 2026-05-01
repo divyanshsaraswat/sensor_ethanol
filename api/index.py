@@ -108,7 +108,7 @@ footer {visibility: hidden}
 }
 """
 
-with gr.Blocks(theme=gr.themes.Soft(primary_hue="blue", secondary_hue="indigo"), css=custom_css) as demo:
+with gr.Blocks(theme=gr.themes.Soft(primary_hue="blue", secondary_hue="indigo"), css=custom_css, head='<link rel="icon" href="/favicon.ico">') as demo:
     with gr.Column(elem_classes="main-header"):
         gr.Markdown("# VOC Concentration Predictor")
         gr.Markdown("An intelligent multi-modal sensing system using physics-informed machine learning and latent space embeddings.")
