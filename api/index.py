@@ -1,25 +1,47 @@
-import gradio as gr
+import os
+import sys
 import joblib
 import pandas as pd
 import numpy as np
-import os
+import gradio as gr
+
+# Environment overrides for Serverless compatibility
+os.environ["GRADIO_ANALYTICS_ENABLED"] = "False"
+os.environ["GRADIO_TEMP_DIR"] = "/tmp"
+os.environ["GRADIO_SERVER_NAME"] = "0.0.0.0"
 
 # Robust path handling for Vercel
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# On Vercel, the app runs from the root, but the file is in api/
+BASE_DIR = os.getcwd()
 
 def get_path(filename):
     return os.path.join(BASE_DIR, filename)
 
-# Load the model and features
-model = joblib.load(get_path('best_model.joblib'))
-feature_names = joblib.load(get_path('features.joblib'))
-metadata = joblib.load(get_path('model_metadata.joblib'))
-summary_data = joblib.load(get_path('model_summary.joblib'))
+print(f"DEBUG: BASE_DIR is {BASE_DIR}")
+print(f"DEBUG: Looking for model in {get_path('best_model.joblib')}")
+
+try:
+    # Load the model and features
+    model = joblib.load(get_path('best_model.joblib'))
+    feature_names = joblib.load(get_path('features.joblib'))
+    metadata = joblib.load(get_path('model_metadata.joblib'))
+    summary_data = joblib.load(get_path('model_summary.joblib'))
+    print("DEBUG: All models loaded successfully.")
+except Exception as e:
+    print(f"ERROR: Failed to load models: {str(e)}")
+    # Fallback/Dummy metadata to prevent crash during import
+    metadata = {"name": "Error Loading Model", "rmse": 0.0}
+    summary_data = []
+    feature_names = []
+    model = None
 
 def predict_concentration(r, cond, ph):
     """
     Predicts ethanol concentration based on RI, Conductivity, and pH.
     """
+    if model is None:
+        return "Error: Model not loaded."
+    
     # Create input dataframe
     input_data = pd.DataFrame([[r, cond, ph]], columns=feature_names)
     
@@ -87,7 +109,7 @@ footer {visibility: hidden}
 """
 
 with gr.Blocks(theme=gr.themes.Soft(primary_hue="blue", secondary_hue="indigo"), css=custom_css) as demo:
-    with gr.Div(elem_classes="main-header"):
+    with gr.Column(elem_classes="main-header"):
         gr.Markdown("# VOC Concentration Predictor")
         gr.Markdown("An intelligent multi-modal sensing system using physics-informed machine learning and latent space embeddings.")
         gr.Markdown(f'<div class="metadata-badge">✨ Optimized via {metadata["name"]} (RMSE: {metadata["rmse"]:.4f})</div>', sanitize_html=False)
@@ -123,11 +145,12 @@ with gr.Blocks(theme=gr.themes.Soft(primary_hue="blue", secondary_hue="indigo"),
                 - **pH Level:** Adds dimensionality for improved chemical robustness.
                 """)
             with gr.Column():
+                r2_val = summary_df[summary_df['Model'] == metadata['name']]['R2 Score'].values[0] if not summary_df.empty else 0.0
                 gr.Markdown(f"""
                 ### Active Intelligence
                 - **Best Model:** {metadata["name"]}
                 - **Training RMSE:** {metadata["rmse"]:.4f}
-                - **R² Score:** {summary_df[summary_df['Model'] == metadata['name']]['R2 Score'].values[0]:.6f}
+                - **R² Score:** {r2_val:.6f}
                 """)
 
     predict_btn.click(
