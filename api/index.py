@@ -162,8 +162,13 @@ with gr.Blocks(theme=gr.themes.Soft(primary_hue="blue", secondary_hue="indigo"),
     gr.Markdown("---")
     gr.Markdown("Built with ❤️ using Gradio & Scikit-Learn | Research Project: VOC_Model")
 
-# Expose the FastAPI app for Vercel
-app = demo.app
+from fastapi import FastAPI
+
+# Create a FastAPI app and mount Gradio to it
+# This is more robust for serverless environments (like Vercel) as it ensures
+# that the Gradio configuration is properly initialized before the first request.
+main_app = FastAPI()
+app = gr.mount_gradio_app(main_app, demo, path="/")
 
 if __name__ == "__main__":
     demo.launch()
