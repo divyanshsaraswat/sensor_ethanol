@@ -12,9 +12,10 @@ Single-feature sensing often fails in non-ideal liquid systems due to non-linear
 
 ### Key Features
 - **Multi-Modal Fusion**: Integrates RI, Conductivity, and pH for superior accuracy.
-- **Automated Model Selection**: Evaluates multiple architectures (Polynomial, SVR, Random Forest, and Neural Networks) and selects the best performer.
+- **Automated Model Selection**: Evaluates multiple architectures (Polynomial, SVR, Neural Networks) and selects the best performer.
+- **Real-time Reliability Validation**: UI provides instant feedback if sensor readings fall outside the calibrated training range.
 - **Neural Latent Spaces**: Includes a Wide MLP (128 units) for learned embeddings of complex chemical interactions.
-- **Premium Gradio UI**: Real-time inference with training benchmarks and technical visualizations.
+- **Premium Gradio UI**: approachable design with training benchmarks and technical architecture details.
 
 ## 🛠️ Technology Stack
 - **Environment**: [uv](https://github.com/astral-sh/uv) (Extremely fast Python package manager)

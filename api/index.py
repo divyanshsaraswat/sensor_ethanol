@@ -35,107 +35,159 @@ except Exception as e:
     feature_names = []
     model = None
 
+# Calibration Ranges (from fit.csv)
+RANGES = {
+    'R': (1.331, 1.345),
+    'Cond': (16.3, 36.1),
+    'pH': (6.9, 7.7)
+}
+
 def predict_concentration(r, cond, ph):
     """
-    Predicts ethanol concentration based on RI, Conductivity, and pH.
+    Predicts ethanol concentration and checks input reliability.
     """
     if model is None:
-        return "Error: Model not loaded."
+        return "Error: Model not loaded.", "🔴 System Offline"
     
+    # Check reliability
+    out_of_bounds = []
+    if not (RANGES['R'][0] <= r <= RANGES['R'][1]):
+        out_of_bounds.append("RI")
+    if not (RANGES['Cond'][0] <= cond <= RANGES['Cond'][1]):
+        out_of_bounds.append("Conductivity")
+    if not (RANGES['pH'][0] <= ph <= RANGES['pH'][1]):
+        out_of_bounds.append("pH")
+    
+    reliability = "🟢 High Reliability (Within Calibration)"
+    if out_of_bounds:
+        reliability = f"⚠️ Low Reliability: {', '.join(out_of_bounds)} outside training range"
+
     # Create input dataframe
     input_data = pd.DataFrame([[r, cond, ph]], columns=feature_names)
     
     # Make prediction
-    prediction = model.predict(input_data)[0]
+    try:
+        prediction = model.predict(input_data)[0]
+        # Ensure prediction is within realistic bounds (e.g., 0-100%)
+        prediction = max(0, min(100, prediction))
+        result = f"{prediction:.2f}%"
+    except Exception as e:
+        result = "Error during prediction"
+        reliability = f"🔴 Prediction Failed: {str(e)}"
     
-    # Ensure prediction is within realistic bounds (0-100%)
-    prediction = max(0, min(100, prediction))
-    
-    return f"{prediction:.2f}%"
+    return result, reliability
 
 # Convert summary data to DataFrame for Gradio table
 summary_df = pd.DataFrame(summary_data).sort_values(by="RMSE")
 
-# Custom CSS for a premium feel
+# Custom CSS for a premium feel and improved eye-space
 custom_css = """
 footer {visibility: hidden}
 .gradio-container {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    background-color: #f8fafc;
+    font-family: 'Outfit', 'Inter', -apple-system, sans-serif;
+    background-color: #fcfcfd;
+    max-width: 1200px !important;
 }
 .main-header {
     text-align: center;
-    padding: 2.5rem 0;
+    padding: 3.5rem 1rem;
     background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
     color: white;
-    border-radius: 0.75rem;
-    margin-bottom: 2rem;
-    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+    border-radius: 1rem;
+    margin-bottom: 3rem;
+    box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
 }
 .main-header h1 {
-    font-size: 2.75rem;
-    font-weight: 800;
-    margin-bottom: 0.75rem;
+    font-size: 3.25rem !important;
+    font-weight: 900;
+    margin-bottom: 1rem;
+    letter-spacing: -0.025em;
     background: linear-gradient(to right, #60a5fa, #a78bfa);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
 }
 .main-header p {
-    font-size: 1.15rem;
-    opacity: 0.9;
-    max-width: 800px;
+    font-size: 1.25rem;
+    opacity: 0.85;
+    max-width: 700px;
     margin: 0 auto;
+    line-height: 1.6;
 }
 .metadata-badge {
-    background-color: rgba(96, 165, 250, 0.1);
-    border: 1px solid rgba(96, 165, 250, 0.2);
-    padding: 0.35rem 1rem;
+    background-color: rgba(96, 165, 250, 0.15);
+    border: 1px solid rgba(96, 165, 250, 0.3);
+    padding: 0.5rem 1.25rem;
     border-radius: 9999px;
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     font-weight: 600;
     color: #60a5fa;
     display: inline-block;
-    margin-top: 1.25rem;
+    margin-top: 1.75rem;
+}
+.section-card {
+    background: white;
+    padding: 2rem;
+    border-radius: 1rem;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05);
+    margin-bottom: 2rem;
 }
 .section-title {
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: #1e293b;
-    margin-bottom: 1rem;
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin-bottom: 1.5rem;
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.75rem;
+}
+.instruction-text {
+    color: #64748b;
+    font-size: 1rem;
+    margin-bottom: 2rem;
+    line-height: 1.5;
 }
 """
 
-with gr.Blocks(theme=gr.themes.Soft(primary_hue="blue", secondary_hue="indigo"), css=custom_css, head='<link rel="icon" href="/favicon.ico">') as demo:
+with gr.Blocks(theme=gr.themes.Soft(primary_hue="blue", spacing_size="lg", radius_size="lg"), css=custom_css, head='<link rel="icon" href="/favicon.ico">') as demo:
     with gr.Column(elem_classes="main-header"):
-        gr.Markdown("# VOC Concentration Predictor")
-        gr.Markdown("An intelligent multi-modal sensing system using physics-informed machine learning and latent space embeddings.")
-        gr.Markdown(f'<div class="metadata-badge">✨ Optimized via {metadata["name"]} (RMSE: {metadata["rmse"]:.4f})</div>', sanitize_html=False)
+        gr.Markdown("# VOC Predictor")
+        gr.Markdown("High-precision ethanol quantification using physics-informed machine learning. Enter your sensor readings below to get an instant calculation.")
+        gr.Markdown(f'<div class="metadata-badge">🚀 Active Engine: {metadata["name"]} (RMSE: {metadata["rmse"]:.4f})</div>', sanitize_html=False)
     
-    with gr.Row():
+    with gr.Row(variant="compact"):
         with gr.Column(scale=3):
-            with gr.Group():
-                gr.Markdown('<div class="section-title">🔍 Real-time Inference</div>')
-                with gr.Row():
-                    r_input = gr.Number(label="Refractive Index (R)", value=1.33, info="Range: 1.33 - 1.37")
-                    cond_input = gr.Number(label="Conductivity (μS/cm)", value=100.0, info="Range: 0 - 500")
-                    ph_input = gr.Number(label="pH Level", value=7.0, info="Range: 4 - 10")
+            with gr.Group(elem_classes="section-card"):
+                gr.Markdown('<div class="section-title">🔍 Step 1: Input Sensor Data</div>')
+                gr.Markdown('<p class="instruction-text">Ensure your sensors are calibrated. Values outside the training range will trigger a low-reliability warning.</p>')
                 
-                predict_btn = gr.Button("🚀 Calculate Ethanol Concentration", variant="primary")
+                with gr.Row():
+                    r_input = gr.Number(label="Refractive Index (R)", value=1.335, info="Target: 1.331 - 1.345")
+                    cond_input = gr.Number(label="Conductivity (μS/cm)", value=25.0, info="Target: 16.3 - 36.1")
+                    ph_input = gr.Number(label="pH Level", value=7.3, info="Target: 6.9 - 7.7")
                 
                 gr.Markdown('<div style="margin-top: 1.5rem"></div>')
-                output = gr.Textbox(label="Resulting Concentration (v/v)%", placeholder="Awaiting sensor inputs...", interactive=False)
+                predict_btn = gr.Button("🚀 Calculate Ethanol Concentration", variant="primary", size="lg")
+                
+                gr.Markdown('<div style="margin-top: 2.5rem"></div>')
+                gr.Markdown('<div class="section-title">📊 Step 2: Prediction Analysis</div>')
+                
+                with gr.Row():
+                    output = gr.Textbox(label="Estimated Concentration (v/v)%", placeholder="Result...", interactive=False, scale=2)
+                    reliability_out = gr.Textbox(label="Confidence Status", value="🟢 Ready", interactive=False, scale=3)
         
         with gr.Column(scale=2):
-            gr.Markdown('<div class="section-title">📊 Training Benchmarks</div>')
-            gr.DataFrame(summary_df, label="Model Performance Summary", interactive=False)
-            gr.Markdown("""
-            *All models were evaluated using a 20% hold-out test set from the `fit.csv` dataset.*
-            """)
+            with gr.Group(elem_classes="section-card"):
+                gr.Markdown('<div class="section-title">🏆 Model Benchmarks</div>')
+                gr.Markdown('<p class="instruction-text">We evaluate multiple architectures to ensure the highest accuracy for your specific chemical mixture.</p>')
+                gr.DataFrame(summary_df, label=None, interactive=False)
+                gr.Markdown("""
+                <div style="font-size: 0.85rem; color: #94a3b8; margin-top: 1rem">
+                *Accuracy measured via Root Mean Squared Error (RMSE) on a 20% validation split.
+                </div>
+                """, sanitize_html=False)
 
-    with gr.Accordion("🛠️ Technical Architecture & Methodology", open=False):
+    with gr.Accordion("🧬 Technical Methodology & Sensor Fusion", open=False):
         with gr.Row():
             with gr.Column():
                 gr.Markdown("""
@@ -156,7 +208,7 @@ with gr.Blocks(theme=gr.themes.Soft(primary_hue="blue", secondary_hue="indigo"),
     predict_btn.click(
         fn=predict_concentration,
         inputs=[r_input, cond_input, ph_input],
-        outputs=output
+        outputs=[output, reliability_out]
     )
     
     gr.Markdown("---")
