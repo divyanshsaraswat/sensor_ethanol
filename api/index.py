@@ -183,7 +183,7 @@ footer {visibility: hidden}
 """
 
 head_html = """
-<title>VOC Predictor | Precision Ethanol Sensing</title>
+<title>Ethanol Concentration Prediction | Precision Sensing</title>
 <meta name="description" content="Intelligent multi-modal sensor fusion for ethanol concentration prediction using RI, Conductivity, and pH.">
 <link rel="icon" type="image/x-icon" href="/favicon.ico">
 <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico">
@@ -191,7 +191,7 @@ head_html = """
 
 with gr.Blocks(theme=gr.themes.Default(primary_hue="indigo", secondary_hue="slate", font=["Outfit", "sans-serif"]), css=custom_css, head=head_html) as demo:
     with gr.Column(elem_classes="main-header"):
-        gr.Markdown("# VOC Predictor")
+        gr.Markdown("# Ethanol Concentration Prediction")
         gr.Markdown("High-precision ethanol quantification using physics-informed machine learning. Monitor sensor health and concentration levels in real-time.")
         gr.Markdown(f'<div class="metadata-badge">Active Engine: {metadata["name"]} (RMSE: {metadata["rmse"]:.4f})</div>', sanitize_html=False)
     
@@ -257,7 +257,7 @@ with gr.Blocks(theme=gr.themes.Default(primary_hue="indigo", secondary_hue="slat
     )
     
     gr.Markdown("---")
-    gr.Markdown("Built with ❤️ using Gradio & Scikit-Learn | Research Project: VOC_Model")
+    gr.Markdown("Built with ❤️ using Gradio & Scikit-Learn | Research Project: Ethanol_Model")
 
 from fastapi import FastAPI
 
