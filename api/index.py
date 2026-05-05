@@ -113,7 +113,10 @@ def predict_concentration(r, cond, ph):
     return result, reliability
 
 # Convert summary data to DataFrame for Gradio table
-summary_df = pd.DataFrame(summary_data).sort_values(by="RMSE")
+if summary_data:
+    summary_df = pd.DataFrame(summary_data).sort_values(by="RMSE")
+else:
+    summary_df = pd.DataFrame(columns=["Model", "RMSE", "R2 Score"])
 
 # Custom CSS for a clean, professional, and high-end aesthetic
 custom_css = """
@@ -234,9 +237,9 @@ with gr.Blocks(theme=gr.themes.Default(primary_hue="indigo", secondary_hue="slat
                 gr.Markdown(f"""
                 ### Intelligent Expert Fallbacks
                 The system routes to these specialized models when sensors are missing:
-                - **Cond-Expert RMSE:** {fallback_metadata.get('Cond (?S/cm)', {}).get('rmse', 0):.4f}
-                - **RI-Expert RMSE:** {fallback_metadata.get('R', {}).get('rmse', 0):.4f}
-                - **pH-Expert RMSE:** {fallback_metadata.get('pH', {}).get('rmse', 0):.4f}
+                - **Cond-Expert RMSE:** {fallback_metadata.get('Cond (?S/cm)', {}).get('rmse', 0) if fallback_metadata else 0:.4f}
+                - **RI-Expert RMSE:** {fallback_metadata.get('R', {}).get('rmse', 0) if fallback_metadata else 0:.4f}
+                - **pH-Expert RMSE:** {fallback_metadata.get('pH', {}).get('rmse', 0) if fallback_metadata else 0:.4f}
                 """)
             with gr.Column():
                 r2_val = summary_df[summary_df['Model'] == metadata['name']]['R2 Score'].values[0] if not summary_df.empty else 0.0

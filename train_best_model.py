@@ -83,14 +83,47 @@ def train_and_save():
             best_name = name
 
     if best_model:
-        print(f"\nBest Model: {best_name} with RMSE: {best_rmse:.4f}")
+        print(f"\nOverall Best Fusion Model: {best_name} with RMSE: {best_rmse:.4f}")
         joblib.dump(best_model, 'best_model.joblib')
-        print(f"Saved best model to 'best_model.joblib'")
         
         # Save feature names, metadata, and full summary for Gradio
         joblib.dump(['R', 'Cond (?S/cm)', 'pH'], 'features.joblib')
         joblib.dump({'name': best_name, 'rmse': best_rmse}, 'model_metadata.joblib')
         joblib.dump(results, 'model_summary.joblib')
+
+    # --- Training Single-Feature Expert Fallbacks ---
+    print("\n--- Training Single-Feature Experts ---")
+    fallbacks = ['R', 'Cond (?S/cm)', 'pH']
+    fallback_metadata = {}
+
+    for feature in fallbacks:
+        print(f"Training expert for: {feature}")
+        X_single = df[[feature]]
+        X_s_train, X_s_test, y_s_train, y_s_test = train_test_split(X_single, y, test_size=0.2, random_state=42)
+        
+        # We use Polynomial d2 as it handles single-feature non-linearity well
+        s_pipeline = Pipeline([
+            ('poly', PolynomialFeatures(degree=2, include_bias=False)),
+            ('scaler', StandardScaler()),
+            ('model', LinearRegression())
+        ])
+        
+        s_pipeline.fit(X_s_train, y_s_train)
+        y_s_pred = s_pipeline.predict(X_s_test)
+        s_rmse = np.sqrt(mean_squared_error(y_s_test, y_s_pred))
+        
+        # Map feature names to clean filenames
+        clean_name = feature.split(' ')[0].replace('(', '').replace(')', '')
+        filename = f'best_model_{clean_name}.joblib'
+        joblib.dump(s_pipeline, filename)
+        
+        fallback_metadata[feature] = {
+            'filename': filename,
+            'rmse': s_rmse
+        }
+        print(f"  Expert Saved: {filename} (RMSE: {s_rmse:.4f})")
+
+    joblib.dump(fallback_metadata, 'fallback_metadata.joblib')
 
 if __name__ == "__main__":
     train_and_save()

@@ -13,9 +13,10 @@ Single-feature sensing often fails in non-ideal liquid systems due to non-linear
 ### Key Features
 - **Multi-Modal Fusion**: Integrates RI, Conductivity, and pH for superior accuracy.
 - **Automated Model Selection**: Evaluates multiple architectures (Polynomial, SVR, Neural Networks) and selects the best performer.
+- **Intelligent Expert Fallback**: Dynamically routes to specialized "Expert" models if only a subset of sensors (e.g., just RI or just Conductivity) is available.
 - **Real-time Reliability Validation**: UI provides instant feedback if sensor readings fall outside the calibrated training range.
 - **Neural Latent Spaces**: Includes a Wide MLP (128 units) for learned embeddings of complex chemical interactions.
-- **Premium Gradio UI**: approachable design with training benchmarks and technical architecture details.
+- **Premium Gradio UI**: Clean, light-mode design with training benchmarks and technical architecture details.
 
 ## 🛠️ Technology Stack
 - **Environment**: [uv](https://github.com/astral-sh/uv) (Extremely fast Python package manager)
@@ -24,14 +25,21 @@ Single-feature sensing often fails in non-ideal liquid systems due to non-linear
 - **Data Processing**: Pandas, NumPy
 - **Visualization**: Matplotlib, Seaborn
 
-## 📋 Methodology
+## 🧠 Methodology & Intelligent Routing
 
-The system addresses the limitations of individual sensors:
+The system addresses the limitations of individual sensors by combining their strengths:
+
 - **Refractive Index (RI)**: Highly sensitive in the low concentration range (0–40%) but flattens out at higher concentrations.
 - **Conductivity**: Highly sensitive in the mid-to-high range (40–60%+), providing an inverse trend that complements RI.
 - **pH Level**: Adds a third dimension to compensate for chemical noise and temperature-induced drift.
 
-**Best Model**: Polynomial Regression (Degree 2) or Wide MLP, depending on the dataset profile.
+### Prediction Modes
+The interface dynamically adjusts its logic based on the sensors you have active:
+1. **Fusion Mode (3 Sensors)**: Uses a Polynomial-D2 architecture to merge all features. This provides the lowest RMSE (0.179) and highest robustness.
+2. **Expert Fallback (1-2 Sensors)**: If sensors are missing, the system engages specialized "Expert" models optimized for partial data.
+    - **Conductivity Expert**: Highly precise (RMSE: 0.24) standalone predictor.
+    - **RI Expert**: Optimized for low-concentration optical sensing.
+    - **pH Expert**: Provides chemical baseline verification.
 
 ## 💻 Getting Started
 
