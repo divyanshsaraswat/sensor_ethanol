@@ -21,25 +21,24 @@ print(f"DEBUG: BASE_DIR is {BASE_DIR}")
 print(f"DEBUG: Looking for model in {get_path('best_model.joblib')}")
 
 try:
-    # Load the main model and features
-    model = joblib.load(get_path('best_model.joblib'))
-    feature_names = joblib.load(get_path('features.joblib'))
+    # Load the registry and baseline metadata
+    model_registry = joblib.load(get_path('model_registry.joblib'))
     metadata = joblib.load(get_path('model_metadata.joblib'))
     summary_data = joblib.load(get_path('model_summary.joblib'))
     
-    # Load fallback experts
-    fallback_metadata = joblib.load(get_path('fallback_metadata.joblib'))
-    fallback_models = {
-        'R': joblib.load(get_path('best_model_R.joblib')),
-        'Cond': joblib.load(get_path('best_model_Cond.joblib')),
-        'pH': joblib.load(get_path('best_model_pH.joblib'))
-    }
-    print("DEBUG: All models and experts loaded successfully.")
+    # Pre-load all expert models from the registry
+    experts = {}
+    for key, info in model_registry.items():
+        experts[key] = {
+            'model': joblib.load(get_path(info['filename'])),
+            'rmse': info['rmse'],
+            'features': info['features']
+        }
+    print("DEBUG: Model Registry and all 7 Experts loaded successfully.")
 except Exception as e:
     print(f"ERROR: Failed to load models: {str(e)}")
     metadata = {"name": "Error Loading Model", "rmse": 0.0}
-    summary_data, feature_names, fallback_metadata, fallback_models = [], [], {}, {}
-    model = None
+    summary_data, model_registry, experts = [], {}, {}
 
 # Calibration Ranges (from fit.csv)
 RANGES = {
@@ -50,65 +49,53 @@ RANGES = {
 
 def predict_concentration(r, cond, ph):
     """
-    Intelligently routes prediction to either the Fusion Model or a Single-Feature Expert.
+    Intelligently routes prediction to the exact expert model for any sensor combination.
     """
-    if model is None:
-        return "Error: Model not loaded.", "🔴 System Offline"
+    if not experts:
+        return "Error: System Offline", "🔴 Models not loaded"
     
     # Identify provided features
-    provided = []
-    if r is not None: provided.append(('R', r))
-    if cond is not None: provided.append(('Cond', cond))
-    if ph is not None: provided.append(('pH', ph))
+    provided_vals = {}
+    if r is not None: provided_vals['R'] = r
+    if cond is not None: provided_vals['Cond (?S/cm)'] = cond
+    if ph is not None: provided_vals['pH'] = ph
 
-    if not provided:
-        return "Waiting...", "⚪ Please enter at least one sensor value"
+    if not provided_vals:
+        return "Waiting...", "⚪ Please enter sensor data"
 
-    # Selection Logic
-    active_model = None
-    prediction_mode = ""
-    input_data = None
+    # Generate registry key (sorted features)
+    registry_key = ",".join(sorted(provided_vals.keys()))
+    expert_info = experts.get(registry_key)
 
-    if len(provided) == 3:
-        active_model = model
-        input_data = pd.DataFrame([[r, cond, ph]], columns=feature_names)
-        prediction_mode = "🧬 Fusion Mode (3-Sensors)"
-    elif len(provided) == 1:
-        feat_name, val = provided[0]
-        active_model = fallback_models.get(feat_name)
-        # Handle the internal feature name for the dataframe
-        actual_feat_name = 'R' if feat_name == 'R' else ('Cond (?S/cm)' if feat_name == 'Cond' else 'pH')
-        input_data = pd.DataFrame([[val]], columns=[actual_feat_name])
-        prediction_mode = f"🎯 {feat_name} Expert Mode"
-    else:
-        # If 2 are provided, we use the single expert with the lowest RMSE (Conductivity is best)
-        # or we could use the fusion model with mean imputation, but Expert Fallback is cleaner.
-        # Let's pick the best available expert from the provided list.
-        best_feat = 'Cond' if any(p[0] == 'Cond' for p in provided) else provided[0][0]
-        val = next(p[1] for p in provided if p[0] == best_feat)
-        active_model = fallback_models.get(best_feat)
-        actual_feat_name = 'Cond (?S/cm)' if best_feat == 'Cond' else ('R' if best_feat == 'R' else 'pH')
-        input_data = pd.DataFrame([[val]], columns=[actual_feat_name])
-        prediction_mode = f"⚖️ Partial Input (Using {best_feat} Expert)"
+    if not expert_info:
+        return "Error", f"🔴 No expert for: {registry_key}"
 
-    # Check reliability for provided features
-    out_of_bounds = []
-    for feat_name, val in provided:
-        if not (RANGES[feat_name][0] <= val <= RANGES[feat_name][1]):
-            out_of_bounds.append(feat_name)
+    # Prepare input data in the correct order for this specific expert
+    ordered_vals = [provided_vals[f] for f in expert_info['features']]
+    input_data = pd.DataFrame([ordered_vals], columns=expert_info['features'])
     
-    reliability = f"🟢 {prediction_mode}"
+    # Reliability check
+    out_of_bounds = []
+    # Map back to display names for reliability check
+    display_map = {'R': 'RI', 'Cond (?S/cm)': 'Cond', 'pH': 'pH'}
+    for feat_name, val in provided_vals.items():
+        range_key = 'R' if feat_name == 'R' else ('Cond' if 'Cond' in feat_name else 'pH')
+        if not (RANGES[range_key][0] <= val <= RANGES[range_key][1]):
+            out_of_bounds.append(display_map[feat_name])
+
+    mode_name = f"{len(provided_vals)}-Sensor Expert"
+    reliability = f"🟢 {mode_name} (RMSE: {expert_info['rmse']:.4f})"
     if out_of_bounds:
         reliability = f"⚠️ Low Reliability ({', '.join(out_of_bounds)} Out-of-Range)"
 
     # Make prediction
     try:
-        prediction = active_model.predict(input_data)[0]
+        prediction = expert_info['model'].predict(input_data)[0]
         prediction = max(0, min(100, prediction))
         result = f"{prediction:.2f}%"
     except Exception as e:
         result = "Error"
-        reliability = f"🔴 Mode Error: {str(e)}"
+        reliability = f"🔴 prediction Failed: {str(e)}"
     
     return result, reliability
 
@@ -229,25 +216,27 @@ with gr.Blocks(theme=gr.themes.Default(primary_hue="indigo", secondary_hue="slat
             with gr.Column():
                 gr.Markdown("""
                 ### Sensor Fusion Logic
-                - **Refractive Index (RI):** Dominant feature for low concentrations (0-40%).
-                - **Conductivity:** Critical for high concentrations (40-60%) where RI sensitivity decreases.
-                - **pH Level:** Adds dimensionality for improved chemical robustness.
+                - **Refractive Index (RI):** Dominant for low range (0-40%).
+                - **Conductivity:** Critical for high range (40-60%+).
+                - **pH Level:** Robustness against chemical interference.
                 """)
             with gr.Column():
+                # Extract some key expert RMSEs for the UI
+                get_rmse = lambda k: f"{experts[k]['rmse']:.4f}" if k in experts else "N/A"
                 gr.Markdown(f"""
-                ### Intelligent Expert Fallbacks
-                The system routes to these specialized models when sensors are missing:
-                - **Cond-Expert RMSE:** {fallback_metadata.get('Cond (?S/cm)', {}).get('rmse', 0) if fallback_metadata else 0:.4f}
-                - **RI-Expert RMSE:** {fallback_metadata.get('R', {}).get('rmse', 0) if fallback_metadata else 0:.4f}
-                - **pH-Expert RMSE:** {fallback_metadata.get('pH', {}).get('rmse', 0) if fallback_metadata else 0:.4f}
+                ### Expert Registry (7 Total)
+                System selects the optimal expert for any input subset:
+                - **Full Fusion (R,C,pH):** {get_rmse('Cond (?S/cm),R,pH')}
+                - **Strong Pair (R,Cond):** {get_rmse('Cond (?S/cm),R')}
+                - **Cond Expert:** {get_rmse('Cond (?S/cm)')}
                 """)
             with gr.Column():
                 r2_val = summary_df[summary_df['Model'] == metadata['name']]['R2 Score'].values[0] if not summary_df.empty else 0.0
                 gr.Markdown(f"""
                 ### Primary Engine
-                - **Best Model:** {metadata["name"]}
-                - **Fusion RMSE:** {metadata["rmse"]:.4f}
-                - **R² Score:** {r2_val:.6f}
+                - **Global Best:** {metadata["name"]}
+                - **Validation R²:** {r2_val:.6f}
+                - **Training RMSE:** {metadata["rmse"]:.4f}
                 """)
 
     predict_btn.click(
