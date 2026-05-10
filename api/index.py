@@ -20,25 +20,47 @@ def get_path(filename):
 print(f"DEBUG: BASE_DIR is {BASE_DIR}")
 print(f"DEBUG: Looking for model in {get_path('best_model.joblib')}")
 
+# Global Cache for experts (Lazy Loading)
+# We only load the registry and summary data at module level for instant UI boot
+experts_cache = {}
+model_registry = None
+metadata = None
+summary_data = []
+
 try:
-    # Load the registry and baseline metadata
+    # Load ONLY the registry and metadata (tiny files)
     model_registry = joblib.load(get_path('model_registry.joblib'))
     metadata = joblib.load(get_path('model_metadata.joblib'))
     summary_data = joblib.load(get_path('model_summary.joblib'))
+    print("DEBUG: Registry loaded. UI ready for boot.")
+except Exception as e:
+    print(f"ERROR: Failed to load registry: {str(e)}")
+    metadata = {"name": "Offline", "rmse": 0.0}
+
+def get_expert(registry_key):
+    """
+    Singleton-style lazy loader for experts.
+    Only loads the specific file needed and caches it in memory.
+    """
+    if registry_key in experts_cache:
+        return experts_cache[registry_key]
     
-    # Pre-load all expert models from the registry
-    experts = {}
-    for key, info in model_registry.items():
-        experts[key] = {
-            'model': joblib.load(get_path(info['filename'])),
+    if not model_registry or registry_key not in model_registry:
+        return None
+        
+    try:
+        info = model_registry[registry_key]
+        print(f"DEBUG: Lazy-loading expert: {info['filename']}")
+        model = joblib.load(get_path(info['filename']))
+        experts_cache[registry_key] = {
+            'model': model,
             'rmse': info['rmse'],
             'features': info['features']
         }
-    print("DEBUG: Model Registry and all 7 Experts loaded successfully.")
-except Exception as e:
-    print(f"ERROR: Failed to load models: {str(e)}")
-    metadata = {"name": "Error Loading Model", "rmse": 0.0}
-    summary_data, model_registry, experts = [], {}, {}
+        return experts_cache[registry_key]
+    except Exception as e:
+        print(f"ERROR loading {registry_key}: {e}")
+        return None
 
 # Calibration Ranges (from fit.csv)
 RANGES = {
@@ -51,9 +73,6 @@ def predict_concentration(r, cond, ph):
     """
     Intelligently routes prediction to the exact expert model for any sensor combination.
     """
-    if not experts:
-        return "Error: System Offline", "🔴 Models not loaded"
-    
     # Identify provided features
     provided_vals = {}
     if r is not None: provided_vals['R'] = r
@@ -65,10 +84,12 @@ def predict_concentration(r, cond, ph):
 
     # Generate registry key (sorted features)
     registry_key = ",".join(sorted(provided_vals.keys()))
-    expert_info = experts.get(registry_key)
+    
+    # Lazy Load the Expert
+    expert_info = get_expert(registry_key)
 
     if not expert_info:
-        return "Error", f"🔴 No expert for: {registry_key}"
+        return "Error", f"🔴 Expert Registry Unavailable"
 
     # Prepare input data in the correct order for this specific expert
     ordered_vals = [provided_vals[f] for f in expert_info['features']]
@@ -95,7 +116,7 @@ def predict_concentration(r, cond, ph):
         result = f"{prediction:.2f}%"
     except Exception as e:
         result = "Error"
-        reliability = f"🔴 prediction Failed: {str(e)}"
+        reliability = f"🔴 Prediction Failed: {str(e)}"
     
     return result, reliability
 
@@ -221,8 +242,8 @@ with gr.Blocks(theme=gr.themes.Default(primary_hue="indigo", secondary_hue="slat
                 - **pH Level:** Robustness against chemical interference.
                 """)
             with gr.Column():
-                # Extract some key expert RMSEs for the UI
-                get_rmse = lambda k: f"{experts[k]['rmse']:.4f}" if k in experts else "N/A"
+                # Extract some key expert RMSEs for the UI from the pre-loaded registry
+                get_rmse = lambda k: f"{model_registry[k]['rmse']:.4f}" if model_registry and k in model_registry else "N/A"
                 gr.Markdown(f"""
                 ### Expert Registry (7 Total)
                 System selects the optimal expert for any input subset:
