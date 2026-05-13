@@ -141,7 +141,7 @@ with gr.Blocks(theme=gr.themes.Default(primary_hue="indigo"), css=custom_css) as
             with gr.Column(scale=2):
                 with gr.Group(elem_classes="section-card"):
                     gr.Markdown("### Model Benchmarks")
-                    benchmark_table = gr.DataFrame(interactive=False)
+                    benchmark_table = gr.Markdown("Loading benchmarks...")
 
         # Methodology INSIDE the main app container
         with gr.Accordion("Methodology Details", open=False):
@@ -174,12 +174,20 @@ with gr.Blocks(theme=gr.themes.Default(primary_hue="indigo"), css=custom_css) as
         engine_text += f"- **Training RMSE:** {metadata['rmse']:.4f}"
         
         badge_html = f'<div class="metadata-badge">Active Engine: {metadata["name"]} (RMSE: {metadata["rmse"]:.4f})</div>'
-        table_data = pd.DataFrame(summary_data).sort_values(by="RMSE") if summary_data else pd.DataFrame()
+        
+        # Generate HIGH PERFORMANCE Markdown Table
+        if summary_data:
+            sorted_data = sorted(summary_data, key=lambda x: x['RMSE'])
+            table_md = "| Model | RMSE | R² Score |\n| :--- | :--- | :--- |\n"
+            for row in sorted_data:
+                table_md += f"| {row['Model']} | {row['RMSE']:.4f} | {row['R2 Score']:.6f} |\n"
+        else:
+            table_md = "*No benchmark data available.*"
         
         return (
             gr.update(visible=False), # loading_screen
             gr.update(visible=True),  # main_app
-            table_data, 
+            table_md, 
             badge_html, 
             reg_text, 
             engine_text
