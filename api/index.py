@@ -79,9 +79,15 @@ def predict_concentration(r, cond, ph):
 custom_css = """
 @keyframes pulse { 0% { opacity: 0.5; transform: scale(0.98); } 50% { opacity: 1; transform: scale(1); } 100% { opacity: 0.5; transform: scale(0.98); } }
 .loader-pulse { animation: pulse 2s infinite ease-in-out; text-align: center; padding: 100px 0; max-width: 600px; margin: 0 auto; }
-.gradio-container { font-family: 'Outfit', sans-serif; background-color: #f8fafc !important; }
+.gradio-container { font-family: 'Outfit', sans-serif; background-color: #f8fafc !important; border: none !important; }
 .main-header { padding: 2rem 0; border-bottom: 1px solid #e2e8f0; margin-bottom: 2rem; }
-.section-card { background: white !important; padding: 2rem !important; border-radius: 12px !important; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+.section-card { background: white !important; padding: 2rem !important; border-radius: 12px !important; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: none !important; }
+.metadata-badge { background-color: #e0e7ff; color: #4338ca; padding: 0.4rem 1rem; border-radius: 6px; font-size: 0.875rem; font-weight: 600; display: inline-block; margin-top: 1rem; }
+/* Remove orange focus rings and borders */
+* { outline: none !important; box-shadow: none !important; border-color: transparent !important; }
+.gradio-container, .gr-group, .gr-box, .gr-form { border: none !important; }
+.gradio-button.primary { background: #4f46e5 !important; color: white !important; border: none !important; }
+.gradio-button.primary:hover { background: #4338ca !important; }
 """
 
 def load_libs_step():
