@@ -84,22 +84,25 @@ custom_css = """
 .section-card { background: white !important; padding: 2rem !important; border-radius: 12px !important; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
 """
 
-def init_experience():
-    # Phase 1: Libraries
-    yield gr.update(visible=True), gr.update(visible=False), "📦 Loading Libraries...", "Importing Pandas & NumPy..."
+def load_libs_step():
+    """Step 1: Load heavy libraries."""
+    global pd, np
+    import pandas as pd_internal
+    import numpy as np_internal
+    pd = pd_internal
+    np = np_internal
+    return "🧠 Loading Model Experts...", "Warming up the 7-sensor registry..."
+
+def load_models_step():
+    """Step 2: Load expert registry."""
     load_essentials()
-    time.sleep(0.5)
-    
-    # Phase 2: Registry
-    yield gr.update(visible=True), gr.update(visible=False), "🧠 Initializing Experts...", "Warming up the 7-sensor registry..."
-    time.sleep(0.5)
-    
-    # Phase 3: Finalize
-    yield gr.update(visible=True), gr.update(visible=False), "✨ Finalizing UI...", "Revealing the Sensing Dashboard..."
-    time.sleep(0.5)
-    
-    # Reveal
-    yield gr.update(visible=False), gr.update(visible=True), "", ""
+    return "✨ Finalizing UI...", "Preparing the sensing dashboard..."
+
+def reveal_app_step():
+    """Step 3: Reveal the main app."""
+    # Build benchmark table data
+    table_data = pd.DataFrame(summary_data).sort_values(by="RMSE") if summary_data else pd.DataFrame()
+    return gr.update(visible=False), gr.update(visible=True), table_data
 
 with gr.Blocks(theme=gr.themes.Default(primary_hue="indigo"), css=custom_css) as demo:
     # 1. LOADING SPLASH SCREEN
@@ -131,13 +134,19 @@ with gr.Blocks(theme=gr.themes.Default(primary_hue="indigo"), css=custom_css) as
                     gr.Markdown("### Model Benchmarks")
                     benchmark_table = gr.DataFrame(interactive=False)
 
-    # REVEAL LOGIC
+    # REVEAL LOGIC (Multi-step chain for Vercel compatibility)
     demo.load(
-        fn=init_experience,
-        outputs=[loading_screen, main_app, status_msg, status_sub]
+        fn=lambda: ("📦 Loading Libraries...", "Importing Pandas & NumPy..."),
+        outputs=[status_msg, status_sub]
     ).then(
-        fn=lambda: pd.DataFrame(summary_data).sort_values(by="RMSE") if summary_data else None,
-        outputs=[benchmark_table]
+        fn=load_libs_step,
+        outputs=[status_msg, status_sub]
+    ).then(
+        fn=load_models_step,
+        outputs=[status_msg, status_sub]
+    ).then(
+        fn=reveal_app_step,
+        outputs=[loading_screen, main_app, benchmark_table]
     )
 
     predict_btn.click(
