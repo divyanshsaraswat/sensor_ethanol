@@ -116,15 +116,18 @@ with gr.Blocks(theme=gr.themes.Default(primary_hue="indigo"), css=custom_css) as
         with gr.Column(elem_classes="main-header"):
             gr.Markdown("# Ethanol Concentration Prediction")
             gr.Markdown("High-precision ethanol quantification using physics-informed machine learning.")
+            metadata_badge = gr.Markdown('<div class="metadata-badge">Active Engine: Loading...</div>', sanitize_html=False)
         
         with gr.Row():
             with gr.Column(scale=3):
                 with gr.Group(elem_classes="section-card"):
                     with gr.Row():
-                        r_input = gr.Number(label="Refractive Index (R)", value=1.335)
-                        cond_input = gr.Number(label="Conductivity (μS/cm)", value=25.0)
-                        ph_input = gr.Number(label="pH Level", value=7.3)
+                        r_input = gr.Number(label="Refractive Index (R)", value=1.335, info="Range: 1.331 - 1.345")
+                        cond_input = gr.Number(label="Conductivity (μS/cm)", value=25.0, info="Range: 16.3 - 36.1")
+                        ph_input = gr.Number(label="pH Level", value=7.3, info="Range: 6.9 - 7.7")
+                    
                     predict_btn = gr.Button("Calculate Concentration", variant="primary")
+                    
                     with gr.Row():
                         output = gr.Textbox(label="Concentration (v/v)%", interactive=False)
                         reliability_out = gr.Textbox(label="Status", value="Ready", interactive=False)
@@ -134,7 +137,40 @@ with gr.Blocks(theme=gr.themes.Default(primary_hue="indigo"), css=custom_css) as
                     gr.Markdown("### Model Benchmarks")
                     benchmark_table = gr.DataFrame(interactive=False)
 
+    with gr.Accordion("Methodology Details", open=False):
+        with gr.Row():
+            with gr.Column():
+                gr.Markdown("""
+                ### Sensor Fusion Logic
+                - **Refractive Index (RI):** Dominant for low range (0-40%).
+                - **Conductivity:** Critical for high range (40-60%+).
+                - **pH Level:** Robustness against chemical interference.
+                """)
+            with gr.Column():
+                registry_info = gr.Markdown("### Expert Registry\nLoading registry details...")
+            with gr.Column():
+                primary_engine_info = gr.Markdown("### Primary Engine\nLoading engine details...")
+
     # REVEAL LOGIC (Multi-step chain for Vercel compatibility)
+    def update_technical_details():
+        load_essentials()
+        # Registry text
+        reg_text = f"### Expert Registry (7 Total)\n"
+        reg_text += f"- **Full Fusion:** {model_registry['Cond (?S/cm),R,pH']['rmse']:.4f}\n"
+        reg_text += f"- **Strong Pair:** {model_registry['Cond (?S/cm),R']['rmse']:.4f}\n"
+        reg_text += f"- **Cond Expert:** {model_registry['Cond (?S/cm)']['rmse']:.4f}"
+        
+        # Engine text
+        engine_text = f"### Primary Engine\n"
+        engine_text += f"- **Best Model:** {metadata['name']}\n"
+        engine_text += f"- **Training RMSE:** {metadata['rmse']:.4f}"
+        
+        badge_html = f'<div class="metadata-badge">Active Engine: {metadata["name"]} (RMSE: {metadata["rmse"]:.4f})</div>'
+        
+        table_data = pd.DataFrame(summary_data).sort_values(by="RMSE") if summary_data else pd.DataFrame()
+        
+        return gr.update(visible=False), gr.update(visible=True), table_data, badge_html, reg_text, engine_text
+
     demo.load(
         fn=lambda: ("📦 Loading Libraries...", "Importing Pandas & NumPy..."),
         outputs=[status_msg, status_sub]
@@ -145,8 +181,8 @@ with gr.Blocks(theme=gr.themes.Default(primary_hue="indigo"), css=custom_css) as
         fn=load_models_step,
         outputs=[status_msg, status_sub]
     ).then(
-        fn=reveal_app_step,
-        outputs=[loading_screen, main_app, benchmark_table]
+        fn=update_technical_details,
+        outputs=[loading_screen, main_app, benchmark_table, metadata_badge, registry_info, primary_engine_info]
     )
 
     predict_btn.click(
