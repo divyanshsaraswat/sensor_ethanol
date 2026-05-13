@@ -21,16 +21,9 @@ BASE_DIR = os.getcwd()
 def get_path(filename): return os.path.join(BASE_DIR, filename)
 
 def load_essentials():
-    global model_registry, metadata, summary_data, pd, np
-    # Lazy imports to speed up initial script boot
-    if pd is None:
-        import pandas as pd_internal
-        pd = pd_internal
-    if np is None:
-        import numpy as np_internal
-        np = np_internal
-    
+    global model_registry, metadata, summary_data
     if model_registry is not None: return
+    # Load ONLY the joblib data (very fast)
     model_registry = joblib.load(get_path('model_registry.joblib'))
     metadata = joblib.load(get_path('model_metadata.joblib'))
     summary_data = joblib.load(get_path('model_summary.joblib'))
@@ -46,6 +39,12 @@ def get_expert(registry_key):
 RANGES = {'R': (1.331, 1.345), 'Cond': (16.3, 36.1), 'pH': (6.9, 7.7)}
 
 def predict_concentration(r, cond, ph):
+    global pd
+    # HEAVY LIFTING HAPPENS HERE (Only once per session)
+    if pd is None:
+        import pandas as pd_internal
+        pd = pd_internal
+    
     load_essentials()
     provided_vals = {}
     if r is not None: provided_vals['R'] = r
